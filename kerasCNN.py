@@ -1,27 +1,27 @@
-import os
-import random
+import os                                                               # os library for loading and iterating through our images
+import random                                                           # may use this at a later time        
 import pandas as pd
 import numpy as np
-import skimage
-import cv2
-import tensorflow as tf
-from tensorflow import keras
-# One-Hot encoding w/ this API
-from skimage.transform import resize
-from sklearn.model_selection import train_test_split
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.callbacks import EarlyStopping
-from keras.models import Sequential
+import skimage                                                          # Scikit-image library
+import cv2                                                              # Computer vision library for reading images
+import tensorflow as tf                                                 # Using tensorflow + keras for our model
+from tensorflow import keras                                                      
+from skimage.transform import resize                            
+from sklearn.model_selection import train_test_split                    # This functoin helps split our data into training / testing
+from tensorflow.keras.optimizers import Adam                            # Adam optimizer
+from tensorflow.keras.utils import to_categorical                       # One-Hot encoding w/ this API
+from tensorflow.keras.callbacks import EarlyStopping                    # Early Stopping to prevent overfitting method *WIP*
+from keras.models import Sequential                                     # keras.models + layers for building our CNN
 from keras.layers import Conv2D, MaxPooling2D, Activation, Dense, Flatten, BatchNormalization, Dropout
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix     # Saw other CNN's using these for analysis *WIP*
 
-
+# Feedback that we had no issues importing any of our packages
 print("packages imported")
+
 TRAIN_DATA_PATH = "./dataset/asl_alphabet_train"
 TEST_DATA_PATH = "./dataset/asl_alphabet_test"
 
-
+# Pre defined variables for network
 batch_size = 64
 imageSize = 64
 target_dims = (imageSize, imageSize, 3)
@@ -29,6 +29,7 @@ num_classes = 29
 train_len = 87000
 
 # Create a dictionary to map folder names to labels
+# We actually have 29 labels here, 26 for alphabet, and 3 special characters (del, nothing, space)
 label_map = {
     'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'F': 5, 'G': 6, 'H': 7,
     'I': 8, 'J': 9, 'K': 10, 'L': 11, 'M': 12, 'N': 13, 'O': 14,
@@ -36,7 +37,7 @@ label_map = {
     'W': 22, 'X': 23, 'Y': 24, 'Z': 25, 'del': 26, 'nothing': 27, 'space': 28
 }
 
-#Load our images
+# Helper function for loading images
 def load_image(file_path):
     img = cv2.imread(file_path)
     if img is None:
@@ -46,25 +47,31 @@ def load_image(file_path):
     return img
 
 def get_data(folder, label_map):
+    # initialize empty arrays to hold our data (x) and our labels (y)
     x = []
     y = []
     
+    # iterate through all folders in our directory, specified in TRAIN_DATA_PATH
     for folderName in os.listdir(folder):
+        # This is for testing purposes
         print(folderName)
+        # Any folder not in our label map is not needed, if statement to catch
         if folderName not in label_map:
-            continue # Any folder not in our label map is not needed
+            continue 
         label = label_map[folderName]
         folder_path = os.path.join(folder, folderName)
         
+        # Reading through each file
         for image_filename in os.listdir(folder_path):
             image_path = os.path.join(folder_path, image_filename)
             img = load_image(image_path)
-        
+            # if our img exists, append to our data arr.
             if img is not None:
                 x.append(img)
                 y.append(label)
-                
+    # return our array        
     return np.array(x), np.array(y)
+# Need to figure out how to use my GPU for training / loading images. Runtime is a major concern here.
 with tf.device('GPU:0'):
     x_train, y_train = get_data(TRAIN_DATA_PATH, label_map)
     
@@ -85,6 +92,7 @@ x_train, x_test, y_train, y_test = train_test_split(x_data,y_data, test_size=0.3
 y_onehot_train = to_categorical(y_train,29)
 y_onehot_test = to_categorical(y_test,29)
 
+# Printing our shapes to make sure everything was loaded correctly up to this point
 print(x_train.shape)
 print(y_train.shape)
 print(x_test.shape)
@@ -92,6 +100,7 @@ print(y_test.shape)
 print(y_onehot_train.shape)
 print(y_onehot_test.shape)
 
+# from Keras, using a sequential model to build our CNN
 model = Sequential()
 
 #Conv. Layer 1
@@ -107,35 +116,38 @@ model.add(Activation('relu'))                       # ReLu activation function f
 model.add(MaxPooling2D((2,2)))                      # 2x2 pooling size
 
 #Conv. Layer 3
-model.add(Conv2D(128, (3,3)))                        # 32 feature maps, 3x3 size, input shape (64,64,3)
+model.add(Conv2D(128, (3,3)))                       # 32 feature maps, 3x3 size, input shape (64,64,3)
 model.add(BatchNormalization())                     # Normalization function for our batch
 model.add(Activation('relu'))                       # ReLu activation function for conv. layers
 model.add(MaxPooling2D((2,2)))                      # 2x2 pooling size
 
-model.add(Flatten())
+model.add(Flatten())                                # Flatten our conv. layers in the model to connect to our FC layers
 
 # Fully Connected Layer 1
 model.add(Dense(256, activation='relu'))            # 128 nodes in our first FC layer, ReLu activation function
 model.add(Dropout(0.5))                             # Dropout Layer that removes weights < .5 to help with overfitting
 
 # Fully Connected Layer 2
-model.add(Dense(29, activation='softmax'))          #29 outputs, using softmax activation here
+model.add(Dense(29, activation='softmax'))          # 29 outputs, using softmax activation here
 
-model.summary()
+model.summary()                                     # this function shows a summary of our CNN up to this point
 
 # Early stopping to prvent overfitting, since runtime is a concern *WIP*
 # early_stop = EarlyStopping(monitor='val_loss',patience=2)
 
 # Using Adam optimizer
-optimizer = Adam(learning_rate=0.01)
+optimizer = Adam(learning_rate=0.001)
 
 model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
 
 # params = training data, training labels, # of epochs, batch size, display progress (tensorflow), validation data for performance analysis
+# Possibly add "Learning rate scheduler" to yield better results
+# This would update our learning rate in real time as we get feedback from our optimizer.
 with tf.device('GPU:0'):
     model.fit(x_train, y_onehot_train, epochs = 3, batch_size=64, verbose=2, validation_data=(x_test,y_onehot_test))
 
 
-metrics = pd.DataFrame(model.history.history)
-print("Model metrics:")
-metrics
+# Would like to create a dataframe here to display the performance per epoch, need to figure out how to do it still
+# metrics = pd.DataFrame(model.history.history)
+# print("Model metrics:")
+
