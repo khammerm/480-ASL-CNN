@@ -12,6 +12,8 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import EarlyStopping
+from keras.models import Sequential
+from keras.layers import Conv2D, MaxPooling2D, Activation, Dense, Flatten, BatchNormalization, Dropout
 from sklearn.metrics import classification_report, confusion_matrix
 
 
@@ -48,7 +50,6 @@ def get_data(folder, label_map):
     y = []
     
     for folderName in os.listdir(folder):
-        print(folder)
         print(folderName)
         if folderName not in label_map:
             continue # Any folder not in our label map is not needed
@@ -64,8 +65,9 @@ def get_data(folder, label_map):
                 y.append(label)
                 
     return np.array(x), np.array(y)
-
-x_train, y_train = get_data(TRAIN_DATA_PATH, label_map)
+with tf.device('GPU:0'):
+    x_train, y_train = get_data(TRAIN_DATA_PATH, label_map)
+    
 print("Images successfully imported")
 
 #Creating new variables for our train/test split
@@ -76,7 +78,7 @@ y_data = y_train
 # test = .25 * size of our training library
 # random_state = shuffling so we get random images for testing, not all from same group
 # stratify = our labels. since our Y data is a dictionary of labels, we use this to 'stratify' our data
-x_train, x_test, y_train, y_test = train_test_split(x_data,y_data, test_size=0.25, random_state=42, stratify=y_data)
+x_train, x_test, y_train, y_test = train_test_split(x_data,y_data, test_size=0.35, random_state=42, stratify=y_data)
 
 # One-Hot Encoding
 # 28 classes + 1 for encoding to binary vector
@@ -104,10 +106,16 @@ model.add(BatchNormalization())                     # Normalization function for
 model.add(Activation('relu'))                       # ReLu activation function for conv. layers
 model.add(MaxPooling2D((2,2)))                      # 2x2 pooling size
 
+#Conv. Layer 3
+model.add(Conv2D(128, (3,3)))                        # 32 feature maps, 3x3 size, input shape (64,64,3)
+model.add(BatchNormalization())                     # Normalization function for our batch
+model.add(Activation('relu'))                       # ReLu activation function for conv. layers
+model.add(MaxPooling2D((2,2)))                      # 2x2 pooling size
+
 model.add(Flatten())
 
 # Fully Connected Layer 1
-model.add(Dense(128, activation='relu'))            # 128 nodes in our first FC layer, ReLu activation function
+model.add(Dense(256, activation='relu'))            # 128 nodes in our first FC layer, ReLu activation function
 model.add(Dropout(0.5))                             # Dropout Layer that removes weights < .5 to help with overfitting
 
 # Fully Connected Layer 2
@@ -118,5 +126,16 @@ model.summary()
 # Early stopping to prvent overfitting, since runtime is a concern *WIP*
 # early_stop = EarlyStopping(monitor='val_loss',patience=2)
 
+# Using Adam optimizer
 optimizer = Adam(learning_rate=0.01)
 
+model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+
+# params = training data, training labels, # of epochs, batch size, display progress (tensorflow), validation data for performance analysis
+with tf.device('GPU:0'):
+    model.fit(x_train, y_onehot_train, epochs = 3, batch_size=64, verbose=2, validation_data=(x_test,y_onehot_test))
+
+
+metrics = pd.DataFrame(model.history.history)
+print("Model metrics:")
+metrics
