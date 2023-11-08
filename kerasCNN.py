@@ -7,7 +7,7 @@ import cv2                                                              # Comput
 import tensorflow as tf                                                 # Using tensorflow + keras for our model
 from tensorflow import keras                                                      
 from skimage.transform import resize                            
-from sklearn.model_selection import train_test_split                    # This functoin helps split our data into training / testing
+from sklearn.model_selection import train_test_split                    # This function helps split our data into training / testing
 from tensorflow.keras.optimizers import Adam                            # Adam optimizer
 from tensorflow.keras.utils import to_categorical                       # One-Hot encoding w/ this API
 from tensorflow.keras.callbacks import EarlyStopping                    # Early Stopping to prevent overfitting method *WIP*
@@ -15,9 +15,11 @@ from keras.models import Sequential                                     # keras.
 from keras.layers import Conv2D, MaxPooling2D, Activation, Dense, Flatten, BatchNormalization, Dropout
 from sklearn.metrics import classification_report, confusion_matrix     # Saw other CNN's using these for analysis *WIP*
 
+
+
 # Feedback that we had no issues importing any of our packages
 print("packages imported")
-
+print(tf.test.gpu_device_name())
 TRAIN_DATA_PATH = "./dataset/asl_alphabet_train"
 TEST_DATA_PATH = "./dataset/asl_alphabet_test"
 
@@ -72,8 +74,8 @@ def get_data(folder, label_map):
     # return our array        
     return np.array(x), np.array(y)
 # Need to figure out how to use my GPU for training / loading images. Runtime is a major concern here.
-with tf.device('GPU:0'):
-    x_train, y_train = get_data(TRAIN_DATA_PATH, label_map)
+
+x_train, y_train = get_data(TRAIN_DATA_PATH, label_map)
     
 print("Images successfully imported")
 
@@ -87,8 +89,7 @@ y_data = y_train
 # stratify = our labels. since our Y data is a dictionary of labels, we use this to 'stratify' our data
 x_train, x_test, y_train, y_test = train_test_split(x_data,y_data, test_size=0.35, random_state=42, stratify=y_data)
 
-# One-Hot Encoding
-# 28 classes + 1 for encoding to binary vector
+# One-Hot Encoding, 29 classes
 y_onehot_train = to_categorical(y_train,29)
 y_onehot_test = to_categorical(y_test,29)
 
@@ -110,13 +111,13 @@ model.add(Activation('relu'))                       # ReLu activation function f
 model.add(MaxPooling2D((2,2)))                      # 2x2 pooling size
 
 #Conv. Layer 2
-model.add(Conv2D(64, (3,3)))                        # 32 feature maps, 3x3 size, input shape (64,64,3)
+model.add(Conv2D(64, (3,3)))                        # 64 feature maps, 3x3 size, input shape (64,64,3)
 model.add(BatchNormalization())                     # Normalization function for our batch
 model.add(Activation('relu'))                       # ReLu activation function for conv. layers
 model.add(MaxPooling2D((2,2)))                      # 2x2 pooling size
 
 #Conv. Layer 3
-model.add(Conv2D(128, (3,3)))                       # 32 feature maps, 3x3 size, input shape (64,64,3)
+model.add(Conv2D(128, (3,3)))                       # 128 feature maps, 3x3 size, input shape (64,64,3)
 model.add(BatchNormalization())                     # Normalization function for our batch
 model.add(Activation('relu'))                       # ReLu activation function for conv. layers
 model.add(MaxPooling2D((2,2)))                      # 2x2 pooling size
@@ -143,8 +144,8 @@ model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['ac
 # params = training data, training labels, # of epochs, batch size, display progress (tensorflow), validation data for performance analysis
 # Possibly add "Learning rate scheduler" to yield better results
 # This would update our learning rate in real time as we get feedback from our optimizer.
-with tf.device('GPU:0'):
-    model.fit(x_train, y_onehot_train, epochs = 3, batch_size=64, verbose=2, validation_data=(x_test,y_onehot_test))
+
+model.fit(x_train, y_onehot_train, epochs = 3, batch_size=64, verbose=2, validation_data=(x_test,y_onehot_test))
 
 
 # Would like to create a dataframe here to display the performance per epoch, need to figure out how to do it still
