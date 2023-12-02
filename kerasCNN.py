@@ -4,7 +4,8 @@ import pandas as pd
 import numpy as np
 import skimage                                                          # Scikit-image library
 import cv2                                                              # Computer vision library for reading images
-import tensorflow as tf                                                 # Using tensorflow + keras for our model
+import tensorflow as tf                                                 # Using tensorflow + keras for our model (GPU Version)
+import matplotlib.pyplot as plt
 from tensorflow import keras                                                      
 from skimage.transform import resize                            
 from sklearn.model_selection import train_test_split                    # This function helps split our data into training / testing
@@ -12,6 +13,7 @@ from tensorflow.keras.optimizers import Adam                            # Adam o
 from tensorflow.keras.utils import to_categorical                       # One-Hot encoding w/ this API
 from tensorflow.keras.callbacks import EarlyStopping                    # Early Stopping to prevent overfitting method *WIP*
 from keras.models import Sequential                                     # keras.models + layers for building our CNN
+from keras.models import load_model                                     # load model function to save our CNN after training+testing
 from keras.layers import Conv2D, MaxPooling2D, Activation, Dense, Flatten, BatchNormalization, Dropout
 from sklearn.metrics import classification_report, confusion_matrix     # Saw other CNN's using these for analysis *WIP*
 
@@ -73,7 +75,45 @@ def get_data(folder, label_map):
                 y.append(label)
     # return our array        
     return np.array(x), np.array(y)
-# Need to figure out how to use my GPU for training / loading images. Runtime is a major concern here.
+# Function to load and display unique images from the training directory
+def load_and_display_unique_images():
+    image_size = (64, 64)
+    unique_images = []  # List to store unique images
+    unique_labels = []  # List to store corresponding labels
+
+    # Iterate through the folders in the training directory
+    for folder in os.listdir(TRAIN_DATA_PATH):
+        for file in os.listdir(os.path.join(TRAIN_DATA_PATH, folder)):
+            file_path = os.path.join(TRAIN_DATA_PATH, folder, file)
+            image = cv2.imread(file_path)
+            final_image = cv2.resize(image, image_size)
+            final_image = cv2.cvtColor(final_image, cv2.COLOR_BGR2RGB)
+            
+            # Append the unique image and its label
+            unique_images.append(final_image)
+            unique_labels.append(folder)
+            break  # Only load one image per category
+
+    return unique_images, unique_labels
+
+# Load unique images and their labels
+unique_images, unique_labels = load_and_display_unique_images()
+
+# Display the unique images and their labels in a grid
+fig = plt.figure(figsize=(15, 15))
+def plot_image(fig, image, label, row, col, index):
+    fig.add_subplot(row, col, index)
+    plt.axis('off')
+    plt.imshow(image)
+    plt.title(label)
+
+image_index = 0
+rows, cols = 5, 6
+for i in range(1, (rows * cols)):
+    plot_image(fig, unique_images[image_index], unique_labels[image_index], rows, cols, i)
+    image_index += 1
+
+plt.show()
 
 x_train, y_train = get_data(TRAIN_DATA_PATH, label_map)
     
@@ -145,8 +185,10 @@ model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['ac
 # Possibly add "Learning rate scheduler" to yield better results
 # This would update our learning rate in real time as we get feedback from our optimizer.
 
-model.fit(x_train, y_onehot_train, epochs = 3, batch_size=64, verbose=2, validation_data=(x_test,y_onehot_test))
+model.fit(x_train, y_onehot_train, epochs = 25, batch_size=64, verbose=2, validation_data=(x_test,y_onehot_test))
 
+model.save('ASL_480_CNN.h5')
+print("Model saved successfully...")
 
 # Would like to create a dataframe here to display the performance per epoch, need to figure out how to do it still
 # metrics = pd.DataFrame(model.history.history)
