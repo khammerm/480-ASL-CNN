@@ -1,6 +1,14 @@
 ## 480-ASL-CNN
 Final project for COSC 480 - Neural Networks and Deep Learning. A Convolutional Neural Network that translates images of the American Sign Language to English
 
+## How to run training / webdemo
+I reccomend making 2 separate anaconda environments to prevent conflicting versions.
+For training, download all required packages in **train-requirements.txt**
+For the web demo, download all required packages in **webdemo-requirements.txt**
+
+For training, run kerasCNN.py
+For the web demo, run demo.py, then go to localhost:3000 to test.
+
 ## Dataset
 @misc{https://www.kaggle.com/grassknoted/aslalphabet_akash nagaraj_2018,
 title={ASL Alphabet},
@@ -29,3 +37,4 @@ https://github.com/grassknoted/Unvoiced/tree/master
 **train-requirements.txt**: list of all required packages for TRAINING, using kerasCNN.py
 
 **webdemo-requirements.txt**: list of all required packages for the WEB DEMO, using demo.py
+
